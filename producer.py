@@ -21,6 +21,10 @@ producer=KafkaProducer(
 def make_producer(root, topic_name):
     with open(root, 'r') as f:
         reader = csv.reader(f)
+        
+        # head 지워줌
+        next(reader)
+
         for message in reader:
             message = int(message[0])
             producer.send(topic_name, value=message)
