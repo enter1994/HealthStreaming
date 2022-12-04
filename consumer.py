@@ -1,21 +1,25 @@
-from kafka import KafkaProducer, KafkaConsumer
+from kafka import KafkaConsumer
 
 import json
 import logging
 from json import dumps, loads
+from collections import Counter
 import csv
+import datetime
 import time
-from count_min_sketch import *
-
-logging.basicConfig(level=logging.INFO)
-
-# import sys
-# sys.path.append('./CountMinSketch/')
 
 from CountMinSketch.countminsketch import *
 from CountMinSketch.hashfactory import *
 
-TOPIC_NAME = 'Stream_Result_2'
+
+
+def find_tweet_timestamp_post_snowflake(tid):
+    offset = 1288834974657
+    tstamp = (tid >> 22) + offset
+    return tstamp
+
+
+TOPIC_NAME = 'Stream_CS_1'
 DEPTH = 5
 WIDTH = 7
 HASH_FUNCTIONS = [hash_function(i) for i in range(DEPTH)]
@@ -33,52 +37,40 @@ WEEKDAY = {'Mon':0,
           }
 
 
-producer=KafkaProducer(
-            bootstrap_servers=['localhost:9092'],
-            value_serializer=lambda x: dumps(x).encode('utf-8')
-        )
-
-
-consumer=KafkaConsumer(TOPIC_NAME,
-                        bootstrap_servers=['localhost:9092'],
-                        auto_offset_reset="earliest",
-                        enable_auto_commit=True,
-                        group_id='my-group',
-                        value_deserializer=lambda x: loads(x.decode('utf-8')),
-                        consumer_timeout_ms=1000
-        )
-
-
-
 # produce random hashmap
-
 hash_map = []
 for i in range(len(HASH_FUNCTIONS)):
     list_=[]
     for j in range((WIDTH)):
         list_.append(HASH_FUNCTIONS[i](j)%WIDTH)
-        print(HASH_FUNCTIONS[i](j)%WIDTH, end=' ')
+        # print(HASH_FUNCTIONS[i](j)%WIDTH, end=' ')
     hash_map.append(list_)
 hash_map =np.array(hash_map)
 
 if __name__ == '__main__':
-    with open('./november_2021_COVID-19_Twitter_Streaming_Dataset.csv', 'r') as f:
-        reader = csv.reader(f)
-        next(reader)
-        
-        for message in reader:
 
-            message = int(message[0])
-            producer.send(TOPIC_NAME, value=message)
-            producer.flush()
-            
-            for message in consumer:
+    consumer=KafkaConsumer(TOPIC_NAME,
+                        bootstrap_servers=['localhost:9092'],
+                        auto_offset_reset="earliest",
+                        enable_auto_commit=True,
+                        # group_id='my-group',
+                        value_deserializer=lambda x: loads(x.decode('utf-8')),
+                        consumer_timeout_ms=1000
+        )
 
-                message_t = message.topic
-                message_p = message.partition
-                message_o = message.offset
-                message_k = message.key
-                message_v = message.value
+
+    print('Consuming Data')
+
+    while True:
+        for message in consumer:
+            message_t = message.topic
+            message_p = message.partition
+            message_o = message.offset
+            message_k = message.key
+            message_v = message.value
+
+            if message_o % 10000 == 0:
+                print('Data Index : ', message_o)
 
             timestamp = find_tweet_timestamp_post_snowflake(message_v)
             current_date = datetime.datetime.fromtimestamp(timestamp/1000)
@@ -93,7 +85,6 @@ if __name__ == '__main__':
 
             batch.clear()
             frequency = []
-            # print(message_o, message_v)
 
             # Monday to Sunday
             for index in range(WIDTH):
@@ -103,5 +94,5 @@ if __name__ == '__main__':
             with open(f'./weekday_count.json', 'w') as f:
                 json.dump(frequency, f)
 
-
-    print('Done')
+        consumer.close()
+        
