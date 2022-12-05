@@ -19,7 +19,7 @@ def find_tweet_timestamp_post_snowflake(tid):
     return tstamp
 
 
-TOPIC_NAME = 'Stream_CS_1'
+TOPIC_NAME = 'Stream_CS_4'
 DEPTH = 5
 WIDTH = 7
 HASH_FUNCTIONS = [hash_function(i) for i in range(DEPTH)]
@@ -45,6 +45,11 @@ for i in range(len(HASH_FUNCTIONS)):
         list_.append(HASH_FUNCTIONS[i](j)%WIDTH)
         # print(HASH_FUNCTIONS[i](j)%WIDTH, end=' ')
     hash_map.append(list_)
+
+# hash 저장
+with open(f'./hash_map.json', 'w') as f:
+    json.dump(hash_map, f)
+
 hash_map =np.array(hash_map)
 
 if __name__ == '__main__':
@@ -58,19 +63,15 @@ if __name__ == '__main__':
                         consumer_timeout_ms=1000
         )
 
-
     print('Consuming Data')
 
     while True:
-        for message in consumer:
+        for message in consumer:            
             message_t = message.topic
             message_p = message.partition
             message_o = message.offset
             message_k = message.key
             message_v = message.value
-
-            if message_o % 10000 == 0:
-                print('Data Index : ', message_o)
 
             timestamp = find_tweet_timestamp_post_snowflake(message_v)
             current_date = datetime.datetime.fromtimestamp(timestamp/1000)
@@ -84,13 +85,24 @@ if __name__ == '__main__':
                 sketch.add(key, count)
 
             batch.clear()
-            frequency = []
 
+            sketch_matrix = sketch.get_matrix().tolist()
+
+            with open(f'./sketch_matrix.json', 'w') as f:
+                json.dump(sketch_matrix, f)
+            
+
+            frequency = []    
             # Monday to Sunday
             for index in range(WIDTH):
                 freq = min([sketch.get_matrix()[i][j] for i,j in enumerate([j for j in hash_map[:, index]])])
                 frequency.append(int(freq))
-
+            
+            # print(frequency)
+    
+            if message_o % 50000 == 0:
+                print('Data Index : ', message_o)
+            
             with open(f'./weekday_count.json', 'w') as f:
                 json.dump(frequency, f)
 

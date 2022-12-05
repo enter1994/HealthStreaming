@@ -7,7 +7,7 @@ import csv
 # from count_min_sketch import *
 
 DATA_ROOT = './november_2021_COVID-19_Twitter_Streaming_Dataset.csv'
-TOPIC_NAME = 'Stream_CS_1'
+TOPIC_NAME = 'Stream_CS_4'
 
 
 producer=KafkaProducer(
@@ -31,5 +31,8 @@ if __name__ == '__main__':
             message = int(message[0])
             producer.send(TOPIC_NAME, value=message)
             producer.flush()
+
+            if idx == 50000:
+                print('Data Index : ', idx)
 
     print('Produce Data Finish')
